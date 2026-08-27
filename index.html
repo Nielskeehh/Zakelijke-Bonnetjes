@@ -53,13 +53,15 @@
     box-shadow: 0 1px 3px rgba(0,0,0,0.08);
   }
   label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 14px; }
-  input[type=text], input[list] {
+  input[type=text], input[list], textarea {
     width: 100%;
     padding: 10px 12px;
     border: 1px solid var(--border);
     border-radius: 8px;
     font-size: 16px;
     margin-bottom: 16px;
+    font-family: inherit;
+    resize: vertical;
   }
   .radio-row { display: flex; gap: 10px; margin-bottom: 16px; }
   .radio-btn {
@@ -175,7 +177,10 @@
   <div class="card" id="openstaandCard" style="display:none;">
     <div class="card-header">
       <label style="margin-bottom:0;">Openstaande bonnetjes</label>
-      <button type="button" class="link-btn" id="refreshOpenstaandBtn">Vernieuwen</button>
+      <div style="display:flex; gap:14px;">
+        <button type="button" class="link-btn" id="openFolderBtn">Open map ↗</button>
+        <button type="button" class="link-btn" id="refreshOpenstaandBtn">Vernieuwen</button>
+      </div>
     </div>
     <div id="openstaandList"><div class="empty-hint">Laden...</div></div>
     <div class="status" id="openstaandStatus"></div>
@@ -193,12 +198,27 @@
 
     <label for="appKeyInput">Dropbox App key</label>
     <input type="text" id="appKeyInput" placeholder="App key uit de Dropbox App Console" autocomplete="off" />
-    <div class="hint">Ga naar de Dropbox App Console, maak een Scoped App (Folder access), zet onder "Permissions" deze drie vinkjes aan: files.content.write, files.content.read, files.metadata.read — en zet de redirect URI exact op dit adres.</div>
+    <div class="hint">Ga naar de Dropbox App Console, maak een Scoped App (Folder access), zet onder "Permissions" deze vijf vinkjes aan: files.content.write, files.content.read, files.metadata.read, sharing.write, sharing.read — en zet de redirect URI exact op dit adres. Al eerder verbonden met minder rechten? Vink de nieuwe rechten aan en klik hieronder op "Loskoppelen" gevolgd door opnieuw "Verbinden" — rechten worden pas bij het verbinden vastgelegd.</div>
 
     <button type="button" class="btn btn-outline" id="connectBtn" style="width:100%; margin-bottom:10px;">Verbinden met Dropbox</button>
     <button type="button" class="btn btn-danger" id="disconnectBtn" style="width:100%; display:none;">Loskoppelen</button>
 
     <div class="status" id="settingsStatus"></div>
+
+    <hr style="margin:20px 0; border:none; border-top:1px solid var(--border);" />
+
+    <label for="mailToInput">Verzenden naar</label>
+    <input type="text" id="mailToInput" placeholder="facturen@installatiebalie.nl" autocomplete="off" />
+
+    <label for="mailCcInput">CC</label>
+    <input type="text" id="mailCcInput" placeholder="jouw-eigen@installatiebalie.nl" autocomplete="off" />
+
+    <label for="mailBodyInput">Automatische tekst</label>
+    <textarea id="mailBodyInput" rows="3" placeholder="Bijgevoegd het bonnetje ter verwerking."></textarea>
+    <div class="hint">Wordt gebruikt bij "Mail klaarzetten" in het overzicht met openstaande bonnetjes.</div>
+
+    <button type="button" class="btn btn-outline" id="saveMailTemplateBtn" style="width:100%;">Opslaan</button>
+    <div class="status" id="mailTemplateStatus"></div>
   </div>
 </div>
 
@@ -228,8 +248,13 @@
   const LS_REFRESH_TOKEN = "db_refresh_token";
   const LS_EXPIRES_AT = "db_expires_at";
   const SS_VERIFIER = "db_code_verifier";
+  const LS_MAIL_TO = "mail_to";
+  const LS_MAIL_CC = "mail_cc";
+  const LS_MAIL_BODY = "mail_body";
+  const LS_FOLDER_LINK = "db_folder_link";
   const DROPBOX_FOLDER = "/Bonnetjes";
   const DROPBOX_SENT_FOLDER = DROPBOX_FOLDER + "/Verzonden";
+  const OPENSTAAND_PAGE_SIZE = 5;
 
   function redirectUri() {
     return location.origin + location.pathname;
@@ -622,6 +647,35 @@
     });
   }
 
+  async function getFolderLink() {
+    const cached = localStorage.getItem(LS_FOLDER_LINK);
+    if (cached) return cached;
+    let url;
+    try {
+      const data = await dropboxApiCall("sharing/create_shared_link_with_settings", { path: DROPBOX_FOLDER });
+      url = data.url;
+    } catch (e) {
+      const tag = e.data && e.data.error && e.data.error.shared_link_already_exists;
+      if (tag) {
+        const existing = await dropboxApiCall("sharing/list_shared_links", { path: DROPBOX_FOLDER, direct_only: true });
+        if (existing.links && existing.links.length) url = existing.links[0].url;
+      }
+      if (!url) throw e;
+    }
+    localStorage.setItem(LS_FOLDER_LINK, url);
+    return url;
+  }
+
+  function buildMailtoUrl(filename) {
+    const to = localStorage.getItem(LS_MAIL_TO) || "";
+    const cc = localStorage.getItem(LS_MAIL_CC) || "";
+    const bodyTemplate = localStorage.getItem(LS_MAIL_BODY) || "";
+    const params = new URLSearchParams({ subject: "Bonnetje - " + filename.replace(/\.pdf$/i, "") });
+    if (cc) params.set("cc", cc);
+    if (bodyTemplate) params.set("body", bodyTemplate);
+    return "mailto:" + encodeURIComponent(to) + "?" + params.toString();
+  }
+
   async function downloadBonnetjeBytes(path) {
     const token = await getValidAccessToken();
     const resp = await fetch("https://content.dropboxapi.com/2/files/download", {
@@ -659,6 +713,9 @@
     return true;
   }
 
+  let openstaandeFiles = [];
+  let openstaandeVisibleCount = 0;
+
   async function renderOpenstaandeList() {
     const card = document.getElementById("openstaandCard");
     const listEl = document.getElementById("openstaandList");
@@ -673,84 +730,133 @@
     listEl.innerHTML = '<div class="empty-hint">Laden...</div>';
 
     try {
-      const files = await listOpenstaandeBonnetjes();
-      if (!files.length) {
-        listEl.innerHTML = '<div class="empty-hint">Geen openstaande bonnetjes.</div>';
-        return;
-      }
-      listEl.innerHTML = "";
-      const dummyPdf = new File([], "test.pdf", { type: "application/pdf" });
-      const shareSupported = canShareFiles(dummyPdf);
-
-      files.forEach((file) => {
-        const row = document.createElement("div");
-        row.className = "bon-item";
-        const datum = new Date(file.client_modified).toLocaleDateString("nl-NL");
-        row.innerHTML =
-          '<div><div class="name">' + file.name + '</div><div class="meta">' + datum + '</div></div>' +
-          '<div class="actions">' +
-          (shareSupported ? '<button type="button" class="btn btn-outline share-btn">Delen / mailen</button>' : "") +
-          '<button type="button" class="btn btn-outline download-btn">Downloaden</button>' +
-          '<button type="button" class="btn btn-outline sent-btn">Verzonden</button>' +
-          "</div>";
-
-        function setBusy(busy) {
-          row.querySelectorAll("button").forEach((b) => (b.disabled = busy));
-        }
-
-        const shareBtn = row.querySelector(".share-btn");
-        if (shareBtn) {
-          shareBtn.addEventListener("click", async () => {
-            setBusy(true);
-            try {
-              const blob = await downloadBonnetjeBytes(file.path_lower);
-              await shareOrDownload(file.name, blob);
-            } catch (err) {
-              console.error(err);
-              setStatus(statusEl, "err", err.message || "Delen mislukt.");
-            } finally {
-              setBusy(false);
-            }
-          });
-        }
-
-        row.querySelector(".download-btn").addEventListener("click", async () => {
-          setBusy(true);
-          try {
-            const blob = await downloadBonnetjeBytes(file.path_lower);
-            const a = document.createElement("a");
-            a.href = URL.createObjectURL(blob);
-            a.download = file.name;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-          } catch (err) {
-            console.error(err);
-            setStatus(statusEl, "err", err.message || "Downloaden mislukt.");
-          } finally {
-            setBusy(false);
-          }
-        });
-
-        row.querySelector(".sent-btn").addEventListener("click", async () => {
-          setBusy(true);
-          try {
-            await moveToVerzonden(file.path_lower, file.name);
-            row.remove();
-            if (!listEl.children.length) listEl.innerHTML = '<div class="empty-hint">Geen openstaande bonnetjes.</div>';
-          } catch (err) {
-            console.error(err);
-            setStatus(statusEl, "err", err.message || "Markeren als verzonden mislukt.");
-            setBusy(false);
-          }
-        });
-
-        listEl.appendChild(row);
-      });
+      openstaandeFiles = await listOpenstaandeBonnetjes();
+      openstaandeVisibleCount = Math.min(OPENSTAAND_PAGE_SIZE, openstaandeFiles.length);
+      renderOpenstaandeItems();
     } catch (e) {
       console.error(e);
       setStatus(statusEl, "err", e.message || "Kon openstaande bonnetjes niet laden.");
       listEl.innerHTML = "";
+    }
+  }
+
+  function renderOpenstaandeItems() {
+    const listEl = document.getElementById("openstaandList");
+    const statusEl = document.getElementById("openstaandStatus");
+
+    if (!openstaandeFiles.length) {
+      listEl.innerHTML = '<div class="empty-hint">Geen openstaande bonnetjes.</div>';
+      return;
+    }
+
+    listEl.innerHTML = "";
+    const dummyPdf = new File([], "test.pdf", { type: "application/pdf" });
+    const shareSupported = canShareFiles(dummyPdf);
+
+    openstaandeFiles.slice(0, openstaandeVisibleCount).forEach((file) => {
+      const row = document.createElement("div");
+      row.className = "bon-item";
+      const datum = new Date(file.client_modified).toLocaleDateString("nl-NL");
+      row.innerHTML =
+        '<div><div class="name">' + file.name + '</div><div class="meta">' + datum + '</div></div>' +
+        '<div class="actions">' +
+        (shareSupported ? '<button type="button" class="btn btn-outline share-btn">Delen / mailen</button>' : "") +
+        '<button type="button" class="btn btn-outline mail-btn">Mail klaarzetten</button>' +
+        '<button type="button" class="btn btn-outline download-btn">Downloaden</button>' +
+        '<button type="button" class="btn btn-outline sent-btn">Verzonden</button>' +
+        "</div>";
+
+      function setBusy(busy) {
+        row.querySelectorAll("button").forEach((b) => (b.disabled = busy));
+      }
+
+      function removeFromList() {
+        const idx = openstaandeFiles.indexOf(file);
+        if (idx > -1) openstaandeFiles.splice(idx, 1);
+        if (openstaandeVisibleCount > openstaandeFiles.length) openstaandeVisibleCount = openstaandeFiles.length;
+        renderOpenstaandeItems();
+      }
+
+      const shareBtn = row.querySelector(".share-btn");
+      if (shareBtn) {
+        shareBtn.addEventListener("click", async () => {
+          setBusy(true);
+          try {
+            const blob = await downloadBonnetjeBytes(file.path_lower);
+            await shareOrDownload(file.name, blob);
+          } catch (err) {
+            console.error(err);
+            setStatus(statusEl, "err", err.message || "Delen mislukt.");
+          } finally {
+            setBusy(false);
+          }
+        });
+      }
+
+      row.querySelector(".mail-btn").addEventListener("click", async () => {
+        setBusy(true);
+        try {
+          const blob = await downloadBonnetjeBytes(file.path_lower);
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = file.name;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          location.href = buildMailtoUrl(file.name);
+        } catch (err) {
+          console.error(err);
+          setStatus(statusEl, "err", err.message || "Mail klaarzetten mislukt.");
+        } finally {
+          setBusy(false);
+        }
+      });
+
+      row.querySelector(".download-btn").addEventListener("click", async () => {
+        setBusy(true);
+        try {
+          const blob = await downloadBonnetjeBytes(file.path_lower);
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = file.name;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+        } catch (err) {
+          console.error(err);
+          setStatus(statusEl, "err", err.message || "Downloaden mislukt.");
+        } finally {
+          setBusy(false);
+        }
+      });
+
+      row.querySelector(".sent-btn").addEventListener("click", async () => {
+        setBusy(true);
+        try {
+          await moveToVerzonden(file.path_lower, file.name);
+          removeFromList();
+        } catch (err) {
+          console.error(err);
+          setStatus(statusEl, "err", err.message || "Markeren als verzonden mislukt.");
+          setBusy(false);
+        }
+      });
+
+      listEl.appendChild(row);
+    });
+
+    if (openstaandeVisibleCount < openstaandeFiles.length) {
+      const moreBtn = document.createElement("button");
+      moreBtn.type = "button";
+      moreBtn.className = "btn btn-outline";
+      moreBtn.style.width = "100%";
+      moreBtn.style.marginTop = "10px";
+      moreBtn.textContent = "Meer tonen (" + (openstaandeFiles.length - openstaandeVisibleCount) + " resterend)";
+      moreBtn.addEventListener("click", () => {
+        openstaandeVisibleCount = Math.min(openstaandeVisibleCount + OPENSTAAND_PAGE_SIZE, openstaandeFiles.length);
+        renderOpenstaandeItems();
+      });
+      listEl.appendChild(moreBtn);
     }
   }
 
@@ -759,6 +865,9 @@
   document.getElementById("settingsBtn").addEventListener("click", () => {
     overlay.classList.add("open");
     document.getElementById("appKeyInput").value = localStorage.getItem(LS_APPKEY) || "";
+    document.getElementById("mailToInput").value = localStorage.getItem(LS_MAIL_TO) || "";
+    document.getElementById("mailCcInput").value = localStorage.getItem(LS_MAIL_CC) || "";
+    document.getElementById("mailBodyInput").value = localStorage.getItem(LS_MAIL_BODY) || "";
   });
   document.getElementById("closeSettings").addEventListener("click", () => {
     overlay.classList.remove("open");
@@ -770,6 +879,27 @@
     renderOpenstaandeList();
   });
   document.getElementById("refreshOpenstaandBtn").addEventListener("click", renderOpenstaandeList);
+
+  document.getElementById("saveMailTemplateBtn").addEventListener("click", () => {
+    localStorage.setItem(LS_MAIL_TO, document.getElementById("mailToInput").value.trim());
+    localStorage.setItem(LS_MAIL_CC, document.getElementById("mailCcInput").value.trim());
+    localStorage.setItem(LS_MAIL_BODY, document.getElementById("mailBodyInput").value.trim());
+    setStatus(document.getElementById("mailTemplateStatus"), "ok", "Opgeslagen.");
+  });
+
+  document.getElementById("openFolderBtn").addEventListener("click", async () => {
+    const statusEl = document.getElementById("openstaandStatus");
+    const win = window.open("", "_blank");
+    try {
+      const url = await getFolderLink();
+      if (win) win.location.href = url;
+      else location.href = url;
+    } catch (e) {
+      console.error(e);
+      if (win) win.close();
+      setStatus(statusEl, "err", e.message || "Kon de opslagmap niet openen.");
+    }
+  });
 
   function updateDropboxStatusUI() {
     const connected = isDropboxConnected();
