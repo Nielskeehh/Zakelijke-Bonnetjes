@@ -1,0 +1,840 @@
+<title>Bonnetjes</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#1d4ed8" />
+<link rel="manifest" href="manifest.json" />
+<link rel="stylesheet" href="cropper.min.css" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<style>
+  :root {
+    --blue: #1d4ed8;
+    --blue-dark: #1e3a8a;
+    --bg: #f3f4f6;
+    --card: #ffffff;
+    --text: #111827;
+    --muted: #6b7280;
+    --border: #d1d5db;
+    --green: #16a34a;
+    --red: #dc2626;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding-bottom: 40px;
+  }
+  header {
+    background: var(--blue);
+    color: white;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  header h1 { font-size: 20px; margin: 0; }
+  header button {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 22px;
+    cursor: pointer;
+    padding: 4px 8px;
+  }
+  main { max-width: 480px; margin: 0 auto; padding: 16px; }
+  .card {
+    background: var(--card);
+    border-radius: 12px;
+    padding: 18px;
+    margin-bottom: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 14px; }
+  input[type=text], input[list] {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 16px;
+    margin-bottom: 16px;
+  }
+  .radio-row { display: flex; gap: 10px; margin-bottom: 16px; }
+  .radio-btn {
+    flex: 1;
+    text-align: center;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    user-select: none;
+  }
+  .radio-btn.selected { background: var(--blue); color: white; border-color: var(--blue); }
+  .file-buttons { display: flex; gap: 10px; margin-bottom: 12px; }
+  .btn {
+    flex: 1;
+    padding: 12px;
+    border-radius: 8px;
+    border: none;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .btn-outline { background: white; border: 1px solid var(--blue); color: var(--blue); }
+  .btn-primary { background: var(--blue); color: white; width: 100%; padding: 14px; font-size: 16px; margin-top: 4px; }
+  .btn-primary:disabled { background: #9ca3af; cursor: not-allowed; }
+  .btn-danger { background: white; border: 1px solid var(--red); color: var(--red); }
+  .preview { margin-top: 10px; }
+  .preview img { max-width: 100%; border-radius: 8px; border: 1px solid var(--border); }
+  .preview .filelabel { font-size: 14px; color: var(--muted); padding: 8px; border: 1px dashed var(--border); border-radius: 8px; }
+  .status { margin-top: 14px; padding: 12px; border-radius: 8px; font-size: 14px; display: none; }
+  .status.ok { background: #dcfce7; color: #166534; display: block; }
+  .status.err { background: #fee2e2; color: #991b1b; display: block; }
+  .status.info { background: #dbeafe; color: #1e40af; display: block; }
+  .hint { font-size: 13px; color: var(--muted); margin-top: -10px; margin-bottom: 16px; }
+  .modal-overlay {
+    display: none;
+    position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+    align-items: flex-end; justify-content: center; z-index: 50;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: white; border-radius: 16px 16px 0 0; padding: 20px;
+    width: 100%; max-width: 480px;
+  }
+  .modal h2 { margin-top: 0; font-size: 18px; }
+  .modal .close-row { text-align: right; }
+  .modal .close-row button { background: none; border: none; font-size: 20px; color: var(--muted); cursor: pointer; }
+  .dropbox-status { font-size: 14px; margin-bottom: 14px; }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; }
+  .dot.on { background: var(--green); }
+  .dot.off { background: var(--muted); }
+  input[type=file] { display: none; }
+  .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .card-header label { margin-bottom: 0; }
+  .link-btn { background: none; border: none; color: var(--blue); font-weight: 600; font-size: 14px; cursor: pointer; padding: 0; }
+  .bon-item {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 10px 0; border-bottom: 1px solid var(--border);
+  }
+  .bon-item:last-child { border-bottom: none; }
+  .bon-item .meta { font-size: 13px; color: var(--muted); }
+  .bon-item .name { font-size: 14px; font-weight: 600; word-break: break-word; }
+  .bon-item .send-btn { flex-shrink: 0; padding: 8px 12px; font-size: 13px; }
+  .bon-item { flex-wrap: wrap; }
+  .bon-item .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .bon-item .actions button { flex-shrink: 0; padding: 8px 10px; font-size: 13px; }
+  .empty-hint { font-size: 14px; color: var(--muted); }
+  .crop-modal .modal { max-width: 480px; }
+  .crop-container { max-height: 60vh; background: #111; border-radius: 8px; overflow: hidden; }
+  .crop-container img { display: block; max-width: 100%; }
+  .crop-actions { display: flex; gap: 10px; margin-top: 14px; }
+  .crop-actions .btn { flex: 1; }
+</style>
+
+<header>
+  <h1>Bonnetjes</h1>
+  <button id="settingsBtn" title="Instellingen">&#9881;</button>
+</header>
+
+<main>
+  <div class="card">
+    <label>Bon</label>
+    <div class="file-buttons">
+      <button type="button" class="btn btn-outline" id="cameraBtn">Foto maken</button>
+      <button type="button" class="btn btn-outline" id="fileBtn">Bestand kiezen</button>
+    </div>
+    <input type="file" id="cameraInput" accept="image/*" capture="environment" />
+    <input type="file" id="fileInput" accept="image/*,application/pdf" />
+    <div class="preview" id="preview"></div>
+  </div>
+
+  <div class="card">
+    <label for="afzender">Van</label>
+    <input type="text" id="afzender" list="namenlijst" placeholder="Naam" autocomplete="off" />
+    <datalist id="namenlijst"></datalist>
+
+    <label>Zakelijk?</label>
+    <div class="radio-row" id="zakelijkRow">
+      <div class="radio-btn" data-value="ja">Ja</div>
+      <div class="radio-btn" data-value="nee">Nee</div>
+    </div>
+
+    <div id="klantWrap" style="display:none;">
+      <label for="klant">Naam klant / leverancier / relatie</label>
+      <input type="text" id="klant" placeholder="Naam" autocomplete="off" />
+    </div>
+
+    <button type="button" class="btn btn-primary" id="submitBtn">PDF maken en opslaan in Dropbox</button>
+    <div class="status" id="status"></div>
+  </div>
+
+  <div class="card" id="openstaandCard" style="display:none;">
+    <div class="card-header">
+      <label style="margin-bottom:0;">Openstaande bonnetjes</label>
+      <button type="button" class="link-btn" id="refreshOpenstaandBtn">Vernieuwen</button>
+    </div>
+    <div id="openstaandList"><div class="empty-hint">Laden...</div></div>
+    <div class="status" id="openstaandStatus"></div>
+  </div>
+</main>
+
+<div class="modal-overlay" id="settingsOverlay">
+  <div class="modal">
+    <div class="close-row"><button id="closeSettings">&times;</button></div>
+    <h2>Instellingen</h2>
+
+    <div class="dropbox-status" id="dbStatusLine">
+      <span class="dot off" id="dbDot"></span><span id="dbStatusText">Niet verbonden met Dropbox</span>
+    </div>
+
+    <label for="appKeyInput">Dropbox App key</label>
+    <input type="text" id="appKeyInput" placeholder="App key uit de Dropbox App Console" autocomplete="off" />
+    <div class="hint">Ga naar de Dropbox App Console, maak een Scoped App (Folder access), zet onder "Permissions" deze drie vinkjes aan: files.content.write, files.content.read, files.metadata.read — en zet de redirect URI exact op dit adres.</div>
+
+    <button type="button" class="btn btn-outline" id="connectBtn" style="width:100%; margin-bottom:10px;">Verbinden met Dropbox</button>
+    <button type="button" class="btn btn-danger" id="disconnectBtn" style="width:100%; display:none;">Loskoppelen</button>
+
+    <div class="status" id="settingsStatus"></div>
+  </div>
+</div>
+
+<div class="modal-overlay crop-modal" id="cropOverlay">
+  <div class="modal">
+    <h2>Bon bijsnijden</h2>
+    <div class="crop-container">
+      <img id="cropImage" alt="Bon" />
+    </div>
+    <div class="crop-actions">
+      <button type="button" class="btn btn-outline" id="cropCancelBtn">Annuleren</button>
+      <button type="button" class="btn btn-outline" id="cropSkipBtn">Hele foto gebruiken</button>
+      <button type="button" class="btn btn-primary" id="cropApplyBtn">Bijsnijden</button>
+    </div>
+  </div>
+</div>
+
+<script src="pdf-lib.min.js"></script>
+<script src="cropper.min.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  const LS_NAMEN = "bon_namen";
+  const LS_APPKEY = "db_app_key";
+  const LS_ACCESS_TOKEN = "db_access_token";
+  const LS_REFRESH_TOKEN = "db_refresh_token";
+  const LS_EXPIRES_AT = "db_expires_at";
+  const SS_VERIFIER = "db_code_verifier";
+  const DROPBOX_FOLDER = "/Bonnetjes";
+  const DROPBOX_SENT_FOLDER = DROPBOX_FOLDER + "/Verzonden";
+
+  function redirectUri() {
+    return location.origin + location.pathname;
+  }
+
+  // ---------- Namenlijst ----------
+  function getNamen() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(LS_NAMEN) || "[]");
+      return Array.isArray(raw) && raw.length ? raw : ["Niels"];
+    } catch (e) {
+      return ["Niels"];
+    }
+  }
+  function saveNaamIfNew(naam) {
+    if (!naam) return;
+    const namen = getNamen();
+    const exists = namen.some((n) => n.toLowerCase() === naam.toLowerCase());
+    if (!exists) {
+      namen.push(naam);
+      localStorage.setItem(LS_NAMEN, JSON.stringify(namen));
+    }
+  }
+  function renderNamenlijst() {
+    const dl = document.getElementById("namenlijst");
+    dl.innerHTML = "";
+    getNamen().forEach((n) => {
+      const opt = document.createElement("option");
+      opt.value = n;
+      dl.appendChild(opt);
+    });
+  }
+
+  // ---------- UI: zakelijk toggle ----------
+  let zakelijkValue = null;
+  document.getElementById("zakelijkRow").addEventListener("click", (e) => {
+    const btn = e.target.closest(".radio-btn");
+    if (!btn) return;
+    zakelijkValue = btn.dataset.value;
+    document.querySelectorAll("#zakelijkRow .radio-btn").forEach((b) =>
+      b.classList.toggle("selected", b === btn)
+    );
+    document.getElementById("klantWrap").style.display = zakelijkValue === "ja" ? "block" : "none";
+  });
+
+  // ---------- Bestand kiezen ----------
+  let selectedFile = null;
+
+  document.getElementById("cameraBtn").addEventListener("click", () => document.getElementById("cameraInput").click());
+  document.getElementById("fileBtn").addEventListener("click", () => document.getElementById("fileInput").click());
+
+  function showPreview(file) {
+    const preview = document.getElementById("preview");
+    preview.innerHTML = "";
+    if (file.type.startsWith("image/")) {
+      const img = document.createElement("img");
+      img.src = URL.createObjectURL(file);
+      preview.appendChild(img);
+    } else {
+      const div = document.createElement("div");
+      div.className = "filelabel";
+      div.textContent = "Bestand: " + file.name;
+      preview.appendChild(div);
+    }
+  }
+
+  function handleFile(file) {
+    if (!file) return;
+    if (file.type.startsWith("image/")) {
+      openCropModal(file);
+    } else {
+      selectedFile = file;
+      showPreview(file);
+    }
+  }
+  document.getElementById("cameraInput").addEventListener("change", (e) => handleFile(e.target.files[0]));
+  document.getElementById("fileInput").addEventListener("change", (e) => handleFile(e.target.files[0]));
+
+  // ---------- Bijsnijden ----------
+  let cropperInstance = null;
+  let cropOriginalFile = null;
+  const cropOverlay = document.getElementById("cropOverlay");
+  const cropImage = document.getElementById("cropImage");
+
+  function openCropModal(file) {
+    cropOriginalFile = file;
+    cropImage.src = URL.createObjectURL(file);
+    cropOverlay.classList.add("open");
+    if (cropperInstance) cropperInstance.destroy();
+    cropperInstance = new Cropper(cropImage, {
+      viewMode: 1,
+      autoCropArea: 0.9,
+      background: false,
+      responsive: true,
+    });
+  }
+
+  function closeCropModal() {
+    cropOverlay.classList.remove("open");
+    if (cropperInstance) {
+      cropperInstance.destroy();
+      cropperInstance = null;
+    }
+    document.getElementById("cameraInput").value = "";
+    document.getElementById("fileInput").value = "";
+  }
+
+  document.getElementById("cropCancelBtn").addEventListener("click", closeCropModal);
+
+  document.getElementById("cropSkipBtn").addEventListener("click", () => {
+    selectedFile = cropOriginalFile;
+    showPreview(selectedFile);
+    closeCropModal();
+  });
+
+  document.getElementById("cropApplyBtn").addEventListener("click", () => {
+    if (!cropperInstance) return;
+    const canvas = cropperInstance.getCroppedCanvas();
+    canvas.toBlob((blob) => {
+      selectedFile = new File([blob], cropOriginalFile.name, { type: "image/jpeg" });
+      showPreview(selectedFile);
+      closeCropModal();
+    }, "image/jpeg", 0.92);
+  });
+
+  // ---------- Status helper ----------
+  function setStatus(el, type, msg) {
+    el.className = "status" + (type ? " " + type : "");
+    el.textContent = msg;
+  }
+
+  // ---------- PDF opbouwen ----------
+  async function buildPdf({ afzender, zakelijk, klant, file }) {
+    const { PDFDocument, StandardFonts, rgb } = PDFLib;
+    const pdfDoc = await PDFDocument.create();
+    const font = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
+
+    const pageWidth = 595.28;
+    const pageHeight = 841.89;
+    const page = pdfDoc.addPage([pageWidth, pageHeight]);
+
+    const margin = 40;
+    let y = pageHeight - margin;
+
+    page.drawText("Bonnetje", { x: margin, y, size: 18, font, color: rgb(0.11, 0.16, 0.5) });
+    y -= 28;
+
+    const now = new Date();
+    const datumStr = now.toLocaleDateString("nl-NL") + " " + now.toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" });
+
+    const lines = [
+      ["Van:", afzender || "-"],
+      ["Zakelijk:", zakelijk === "ja" ? "Ja" : "Nee"],
+    ];
+    if (zakelijk === "ja") lines.push(["Klant / leverancier / relatie:", klant || "-"]);
+    lines.push(["Ingediend op:", datumStr]);
+
+    for (const [label, value] of lines) {
+      page.drawText(label, { x: margin, y, size: 11, font, color: rgb(0.3, 0.3, 0.3) });
+      page.drawText(value, { x: margin + 190, y, size: 11, font: fontRegular, color: rgb(0, 0, 0) });
+      y -= 20;
+    }
+
+    y -= 10;
+    page.drawLine({ start: { x: margin, y }, end: { x: pageWidth - margin, y }, thickness: 1, color: rgb(0.85, 0.85, 0.85) });
+    y -= 20;
+
+    const availableWidth = pageWidth - margin * 2;
+    const availableHeight = y - margin;
+
+    const bytes = new Uint8Array(await file.arrayBuffer());
+
+    if (file.type === "application/pdf") {
+      const srcDoc = await PDFDocument.load(bytes);
+      const [embeddedPage] = await pdfDoc.embedPdf(srcDoc, [0]);
+      const scale = Math.min(availableWidth / embeddedPage.width, availableHeight / embeddedPage.height, 1);
+      const w = embeddedPage.width * scale;
+      const h = embeddedPage.height * scale;
+      page.drawPage(embeddedPage, { x: margin + (availableWidth - w) / 2, y: y - h, width: w, height: h });
+    } else {
+      let img;
+      if (file.type === "image/png") img = await pdfDoc.embedPng(bytes);
+      else img = await pdfDoc.embedJpg(bytes);
+      const scale = Math.min(availableWidth / img.width, availableHeight / img.height, 1);
+      const w = img.width * scale;
+      const h = img.height * scale;
+      page.drawImage(img, { x: margin + (availableWidth - w) / 2, y: y - h, width: w, height: h });
+    }
+
+    return pdfDoc.save();
+  }
+
+  function sanitizeForFilename(str) {
+    return (str || "onbekend")
+      .normalize("NFKD").replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-zA-Z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .toLowerCase() || "onbekend";
+  }
+
+  function buildFilename({ afzender, zakelijk, klant }) {
+    const d = new Date();
+    const pad = (n) => String(n).padStart(2, "0");
+    const datePart = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    const timePart = `${pad(d.getHours())}${pad(d.getMinutes())}`;
+    const naamPart = sanitizeForFilename(zakelijk === "ja" && klant ? klant : afzender);
+    return `bon_${datePart}_${timePart}_${naamPart}.pdf`;
+  }
+
+  // ---------- Dropbox: PKCE OAuth ----------
+  function b64url(buffer) {
+    return btoa(String.fromCharCode(...new Uint8Array(buffer)))
+      .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+  function randomString(len) {
+    const arr = new Uint8Array(len);
+    crypto.getRandomValues(arr);
+    return b64url(arr.buffer).slice(0, len);
+  }
+  async function sha256(text) {
+    const data = new TextEncoder().encode(text);
+    return crypto.subtle.digest("SHA-256", data);
+  }
+
+  async function startDropboxAuth() {
+    const appKey = document.getElementById("appKeyInput").value.trim();
+    if (!appKey) {
+      setStatus(document.getElementById("settingsStatus"), "err", "Vul eerst een Dropbox App key in.");
+      return;
+    }
+    localStorage.setItem(LS_APPKEY, appKey);
+
+    const verifier = randomString(64);
+    sessionStorage.setItem(SS_VERIFIER, verifier);
+    const challenge = b64url(await sha256(verifier));
+
+    const params = new URLSearchParams({
+      client_id: appKey,
+      response_type: "code",
+      code_challenge: challenge,
+      code_challenge_method: "S256",
+      redirect_uri: redirectUri(),
+      token_access_type: "offline",
+    });
+    location.href = "https://www.dropbox.com/oauth2/authorize?" + params.toString();
+  }
+
+  async function finishDropboxAuthIfRedirected() {
+    const url = new URL(location.href);
+    const code = url.searchParams.get("code");
+    if (!code) return;
+
+    const verifier = sessionStorage.getItem(SS_VERIFIER);
+    const appKey = localStorage.getItem(LS_APPKEY);
+    history.replaceState({}, "", redirectUri());
+    if (!verifier || !appKey) return;
+
+    try {
+      const resp = await fetch("https://api.dropboxapi.com/oauth2/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          code,
+          grant_type: "authorization_code",
+          client_id: appKey,
+          code_verifier: verifier,
+          redirect_uri: redirectUri(),
+        }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error_description || data.error || "Onbekende fout");
+      localStorage.setItem(LS_ACCESS_TOKEN, data.access_token);
+      if (data.refresh_token) localStorage.setItem(LS_REFRESH_TOKEN, data.refresh_token);
+      localStorage.setItem(LS_EXPIRES_AT, String(Date.now() + (data.expires_in - 60) * 1000));
+    } catch (e) {
+      console.error("Dropbox auth failed", e);
+    }
+  }
+
+  async function refreshAccessToken() {
+    const refreshToken = localStorage.getItem(LS_REFRESH_TOKEN);
+    const appKey = localStorage.getItem(LS_APPKEY);
+    if (!refreshToken || !appKey) throw new Error("Niet verbonden met Dropbox");
+    const resp = await fetch("https://api.dropboxapi.com/oauth2/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token: refreshToken,
+        client_id: appKey,
+      }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error_description || data.error || "Vernieuwen mislukt");
+    localStorage.setItem(LS_ACCESS_TOKEN, data.access_token);
+    localStorage.setItem(LS_EXPIRES_AT, String(Date.now() + (data.expires_in - 60) * 1000));
+    return data.access_token;
+  }
+
+  async function getValidAccessToken() {
+    const expiresAt = Number(localStorage.getItem(LS_EXPIRES_AT) || 0);
+    const token = localStorage.getItem(LS_ACCESS_TOKEN);
+    if (token && Date.now() < expiresAt) return token;
+    return refreshAccessToken();
+  }
+
+  function isDropboxConnected() {
+    return !!localStorage.getItem(LS_REFRESH_TOKEN);
+  }
+
+  function disconnectDropbox() {
+    localStorage.removeItem(LS_ACCESS_TOKEN);
+    localStorage.removeItem(LS_REFRESH_TOKEN);
+    localStorage.removeItem(LS_EXPIRES_AT);
+    updateDropboxStatusUI();
+  }
+
+  async function uploadToDropbox(filename, pdfBytes) {
+    const token = await getValidAccessToken();
+    const resp = await fetch("https://content.dropboxapi.com/2/files/upload", {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer " + token,
+        "Dropbox-API-Arg": JSON.stringify({
+          path: DROPBOX_FOLDER + "/" + filename,
+          mode: "add",
+          autorename: true,
+          mute: false,
+        }),
+        "Content-Type": "application/octet-stream",
+      },
+      body: pdfBytes,
+    });
+    if (!resp.ok) {
+      const errText = await resp.text();
+      throw new Error("Upload naar Dropbox mislukt: " + errText);
+    }
+    return resp.json();
+  }
+
+  function downloadLocally(filename, pdfBytes) {
+    const blob = new Blob([pdfBytes], { type: "application/pdf" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
+  async function dropboxApiCall(endpoint, body) {
+    const token = await getValidAccessToken();
+    const resp = await fetch("https://api.dropboxapi.com/2/" + endpoint, {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer " + token,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body || {}),
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) {
+      const err = new Error((data.error_summary) || "Dropbox-verzoek mislukt");
+      err.data = data;
+      throw err;
+    }
+    return data;
+  }
+
+  async function listOpenstaandeBonnetjes() {
+    let entries = [];
+    try {
+      const data = await dropboxApiCall("files/list_folder", { path: DROPBOX_FOLDER });
+      entries = data.entries || [];
+    } catch (e) {
+      if (e.data && e.data.error_summary && e.data.error_summary.startsWith("path/not_found")) return [];
+      throw e;
+    }
+    return entries
+      .filter((e) => e[".tag"] === "file")
+      .sort((a, b) => new Date(b.client_modified) - new Date(a.client_modified));
+  }
+
+  async function moveToVerzonden(path, filename) {
+    await dropboxApiCall("files/move_v2", {
+      from_path: path,
+      to_path: DROPBOX_SENT_FOLDER + "/" + filename,
+      autorename: true,
+    });
+  }
+
+  async function downloadBonnetjeBytes(path) {
+    const token = await getValidAccessToken();
+    const resp = await fetch("https://content.dropboxapi.com/2/files/download", {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer " + token,
+        "Dropbox-API-Arg": JSON.stringify({ path }),
+      },
+    });
+    if (!resp.ok) throw new Error("Downloaden vanuit Dropbox mislukt.");
+    return resp.blob();
+  }
+
+  function canShareFiles(file) {
+    return !!(navigator.canShare && navigator.share && navigator.canShare({ files: [file] }));
+  }
+
+  async function shareOrDownload(filename, blob) {
+    const file = new File([blob], filename, { type: "application/pdf" });
+    if (canShareFiles(file)) {
+      try {
+        await navigator.share({ files: [file], title: filename, text: "Bonnetje voor administratie" });
+        return true;
+      } catch (e) {
+        if (e.name === "AbortError") return false; // user cancelled the share sheet
+        // fall through to download if sharing failed for another reason
+      }
+    }
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    return true;
+  }
+
+  async function renderOpenstaandeList() {
+    const card = document.getElementById("openstaandCard");
+    const listEl = document.getElementById("openstaandList");
+    const statusEl = document.getElementById("openstaandStatus");
+    setStatus(statusEl, "", "");
+
+    if (!isDropboxConnected()) {
+      card.style.display = "none";
+      return;
+    }
+    card.style.display = "block";
+    listEl.innerHTML = '<div class="empty-hint">Laden...</div>';
+
+    try {
+      const files = await listOpenstaandeBonnetjes();
+      if (!files.length) {
+        listEl.innerHTML = '<div class="empty-hint">Geen openstaande bonnetjes.</div>';
+        return;
+      }
+      listEl.innerHTML = "";
+      const dummyPdf = new File([], "test.pdf", { type: "application/pdf" });
+      const shareSupported = canShareFiles(dummyPdf);
+
+      files.forEach((file) => {
+        const row = document.createElement("div");
+        row.className = "bon-item";
+        const datum = new Date(file.client_modified).toLocaleDateString("nl-NL");
+        row.innerHTML =
+          '<div><div class="name">' + file.name + '</div><div class="meta">' + datum + '</div></div>' +
+          '<div class="actions">' +
+          (shareSupported ? '<button type="button" class="btn btn-outline share-btn">Delen / mailen</button>' : "") +
+          '<button type="button" class="btn btn-outline download-btn">Downloaden</button>' +
+          '<button type="button" class="btn btn-outline sent-btn">Verzonden</button>' +
+          "</div>";
+
+        function setBusy(busy) {
+          row.querySelectorAll("button").forEach((b) => (b.disabled = busy));
+        }
+
+        const shareBtn = row.querySelector(".share-btn");
+        if (shareBtn) {
+          shareBtn.addEventListener("click", async () => {
+            setBusy(true);
+            try {
+              const blob = await downloadBonnetjeBytes(file.path_lower);
+              await shareOrDownload(file.name, blob);
+            } catch (err) {
+              console.error(err);
+              setStatus(statusEl, "err", err.message || "Delen mislukt.");
+            } finally {
+              setBusy(false);
+            }
+          });
+        }
+
+        row.querySelector(".download-btn").addEventListener("click", async () => {
+          setBusy(true);
+          try {
+            const blob = await downloadBonnetjeBytes(file.path_lower);
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = file.name;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+          } catch (err) {
+            console.error(err);
+            setStatus(statusEl, "err", err.message || "Downloaden mislukt.");
+          } finally {
+            setBusy(false);
+          }
+        });
+
+        row.querySelector(".sent-btn").addEventListener("click", async () => {
+          setBusy(true);
+          try {
+            await moveToVerzonden(file.path_lower, file.name);
+            row.remove();
+            if (!listEl.children.length) listEl.innerHTML = '<div class="empty-hint">Geen openstaande bonnetjes.</div>';
+          } catch (err) {
+            console.error(err);
+            setStatus(statusEl, "err", err.message || "Markeren als verzonden mislukt.");
+            setBusy(false);
+          }
+        });
+
+        listEl.appendChild(row);
+      });
+    } catch (e) {
+      console.error(e);
+      setStatus(statusEl, "err", e.message || "Kon openstaande bonnetjes niet laden.");
+      listEl.innerHTML = "";
+    }
+  }
+
+  // ---------- Settings modal ----------
+  const overlay = document.getElementById("settingsOverlay");
+  document.getElementById("settingsBtn").addEventListener("click", () => {
+    overlay.classList.add("open");
+    document.getElementById("appKeyInput").value = localStorage.getItem(LS_APPKEY) || "";
+  });
+  document.getElementById("closeSettings").addEventListener("click", () => {
+    overlay.classList.remove("open");
+    renderOpenstaandeList();
+  });
+  document.getElementById("connectBtn").addEventListener("click", startDropboxAuth);
+  document.getElementById("disconnectBtn").addEventListener("click", () => {
+    disconnectDropbox();
+    renderOpenstaandeList();
+  });
+  document.getElementById("refreshOpenstaandBtn").addEventListener("click", renderOpenstaandeList);
+
+  function updateDropboxStatusUI() {
+    const connected = isDropboxConnected();
+    document.getElementById("dbDot").className = "dot " + (connected ? "on" : "off");
+    document.getElementById("dbStatusText").textContent = connected ? "Verbonden met Dropbox" : "Niet verbonden met Dropbox";
+    document.getElementById("connectBtn").style.display = connected ? "none" : "block";
+    document.getElementById("disconnectBtn").style.display = connected ? "block" : "none";
+  }
+
+  // ---------- Submit ----------
+  document.getElementById("submitBtn").addEventListener("click", async () => {
+    const statusEl = document.getElementById("status");
+    const afzender = document.getElementById("afzender").value.trim();
+    const klant = document.getElementById("klant").value.trim();
+
+    if (!selectedFile) return setStatus(statusEl, "err", "Kies eerst een foto of bestand van het bonnetje.");
+    if (!afzender) return setStatus(statusEl, "err", "Vul in wie het bonnetje indient.");
+    if (!zakelijkValue) return setStatus(statusEl, "err", "Geef aan of het bonnetje zakelijk is.");
+    if (zakelijkValue === "ja" && !klant) return setStatus(statusEl, "err", "Vul de naam van de klant, leverancier of relatie in.");
+
+    const btn = document.getElementById("submitBtn");
+    btn.disabled = true;
+    setStatus(statusEl, "info", "PDF wordt gemaakt...");
+
+    try {
+      const pdfBytes = await buildPdf({ afzender, zakelijk: zakelijkValue, klant, file: selectedFile });
+      const filename = buildFilename({ afzender, zakelijk: zakelijkValue, klant });
+
+      if (isDropboxConnected()) {
+        setStatus(statusEl, "info", "PDF wordt opgeslagen in Dropbox...");
+        await uploadToDropbox(filename, pdfBytes);
+        setStatus(statusEl, "ok", "Opgeslagen in Dropbox als " + filename);
+        renderOpenstaandeList();
+      } else {
+        downloadLocally(filename, pdfBytes);
+        setStatus(statusEl, "ok", "Niet verbonden met Dropbox — PDF is lokaal gedownload als " + filename + ". Verbind via het tandwiel-icoon om automatisch op te slaan.");
+      }
+
+      saveNaamIfNew(afzender);
+      renderNamenlijst();
+
+      // reset form for the next receipt
+      selectedFile = null;
+      document.getElementById("preview").innerHTML = "";
+      document.getElementById("klant").value = "";
+      zakelijkValue = null;
+      document.querySelectorAll("#zakelijkRow .radio-btn").forEach((b) => b.classList.remove("selected"));
+      document.getElementById("klantWrap").style.display = "none";
+    } catch (e) {
+      console.error(e);
+      setStatus(statusEl, "err", e.message || "Er ging iets mis.");
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // ---------- Init ----------
+  (async function init() {
+    renderNamenlijst();
+    await finishDropboxAuthIfRedirected();
+    updateDropboxStatusUI();
+    renderOpenstaandeList();
+    if (navigator.serviceWorker) {
+      navigator.serviceWorker.register("sw.js").catch(() => {});
+    }
+  })();
+})();
+</script>
