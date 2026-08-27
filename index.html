@@ -670,10 +670,11 @@
     const to = localStorage.getItem(LS_MAIL_TO) || "";
     const cc = localStorage.getItem(LS_MAIL_CC) || "";
     const bodyTemplate = localStorage.getItem(LS_MAIL_BODY) || "";
-    const params = new URLSearchParams({ subject: "Bonnetje - " + filename.replace(/\.pdf$/i, "") });
-    if (cc) params.set("cc", cc);
-    if (bodyTemplate) params.set("body", bodyTemplate);
-    return "mailto:" + encodeURIComponent(to) + "?" + params.toString();
+    const subject = "Bonnetje - " + filename.replace(/\.pdf$/i, "");
+    const parts = ["subject=" + encodeURIComponent(subject)];
+    if (cc) parts.push("cc=" + encodeURIComponent(cc));
+    if (bodyTemplate) parts.push("body=" + encodeURIComponent(bodyTemplate));
+    return "mailto:" + encodeURIComponent(to) + "?" + parts.join("&");
   }
 
   async function downloadBonnetjeBytes(path) {
