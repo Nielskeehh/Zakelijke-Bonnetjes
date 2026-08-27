@@ -1,7 +1,7 @@
 <title>Bonnetjes</title>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#1d4ed8" />
+<meta name="theme-color" content="#ffc700" />
 <link rel="manifest" href="manifest.json" />
 <link rel="stylesheet" href="cropper.min.css" />
 <link rel="apple-touch-icon" href="icon-192.png" />
@@ -9,8 +9,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
 <style>
   :root {
-    --blue: #1d4ed8;
-    --blue-dark: #1e3a8a;
+    --brand: #ffc700;
+    --brand-text: #1a1a1a;
     --bg: #f3f4f6;
     --card: #ffffff;
     --text: #111827;
@@ -28,8 +28,8 @@
     padding-bottom: 40px;
   }
   header {
-    background: var(--blue);
-    color: white;
+    background: var(--brand);
+    color: var(--brand-text);
     padding: 16px 20px;
     display: flex;
     align-items: center;
@@ -39,7 +39,7 @@
   header button {
     background: none;
     border: none;
-    color: white;
+    color: var(--brand-text);
     font-size: 22px;
     cursor: pointer;
     padding: 4px 8px;
@@ -72,7 +72,7 @@
     font-weight: 600;
     user-select: none;
   }
-  .radio-btn.selected { background: var(--blue); color: white; border-color: var(--blue); }
+  .radio-btn.selected { background: var(--brand); color: var(--brand-text); border-color: var(--brand); }
   .file-buttons { display: flex; gap: 10px; margin-bottom: 12px; }
   .btn {
     flex: 1;
@@ -83,8 +83,8 @@
     font-weight: 600;
     cursor: pointer;
   }
-  .btn-outline { background: white; border: 1px solid var(--blue); color: var(--blue); }
-  .btn-primary { background: var(--blue); color: white; width: 100%; padding: 14px; font-size: 16px; margin-top: 4px; }
+  .btn-outline { background: white; border: 1px solid var(--brand-text); color: var(--brand-text); }
+  .btn-primary { background: var(--brand); color: var(--brand-text); width: 100%; padding: 14px; font-size: 16px; margin-top: 4px; }
   .btn-primary:disabled { background: #9ca3af; cursor: not-allowed; }
   .btn-danger { background: white; border: 1px solid var(--red); color: var(--red); }
   .preview { margin-top: 10px; }
@@ -115,7 +115,7 @@
   input[type=file] { display: none; }
   .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
   .card-header label { margin-bottom: 0; }
-  .link-btn { background: none; border: none; color: var(--blue); font-weight: 600; font-size: 14px; cursor: pointer; padding: 0; }
+  .link-btn { background: none; border: none; color: var(--brand-text); font-weight: 600; font-size: 14px; cursor: pointer; padding: 0; text-decoration: underline; }
   .bon-item {
     display: flex; align-items: center; justify-content: space-between; gap: 10px;
     padding: 10px 0; border-bottom: 1px solid var(--border);
@@ -375,7 +375,7 @@
     const margin = 40;
     let y = pageHeight - margin;
 
-    page.drawText("Bonnetje", { x: margin, y, size: 18, font, color: rgb(0.11, 0.16, 0.5) });
+    page.drawText("Bonnetje", { x: margin, y, size: 18, font, color: rgb(0.1, 0.1, 0.1) });
     y -= 28;
 
     const now = new Date();
