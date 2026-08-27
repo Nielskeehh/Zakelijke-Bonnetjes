@@ -578,16 +578,6 @@
     return resp.json();
   }
 
-  function downloadLocally(filename, pdfBytes) {
-    const blob = new Blob([pdfBytes], { type: "application/pdf" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-  }
-
   async function dropboxApiCall(endpoint, body) {
     const token = await getValidAccessToken();
     const resp = await fetch("https://api.dropboxapi.com/2/" + endpoint, {
@@ -677,9 +667,9 @@
     if (canShareFiles(file)) {
       try {
         await navigator.share({ files: [file], title: filename, text: "Bonnetje voor administratie" });
-        return true;
+        return "shared";
       } catch (e) {
-        if (e.name === "AbortError") return false; // user cancelled the share sheet
+        if (e.name === "AbortError") return "cancelled";
         // fall through to download if sharing failed for another reason
       }
     }
@@ -689,7 +679,7 @@
     document.body.appendChild(a);
     a.click();
     a.remove();
-    return true;
+    return "downloaded";
   }
 
   let openstaandeFiles = [];
@@ -883,8 +873,14 @@
         setStatus(statusEl, "ok", "Opgeslagen in Dropbox als " + filename);
         renderOpenstaandeList();
       } else {
-        downloadLocally(filename, pdfBytes);
-        setStatus(statusEl, "ok", "Niet verbonden met Dropbox — PDF is lokaal gedownload als " + filename + ". Verbind via het tandwiel-icoon om automatisch op te slaan.");
+        const blob = new Blob([pdfBytes], { type: "application/pdf" });
+        const outcome = await shareOrDownload(filename, blob);
+        if (outcome === "cancelled") {
+          setStatus(statusEl, "err", "Delen geannuleerd — de PDF is niet opgeslagen. Probeer het opnieuw.");
+          return;
+        }
+        const verb = outcome === "shared" ? "gedeeld" : "lokaal gedownload";
+        setStatus(statusEl, "ok", "PDF is " + verb + ": " + filename + ". Verbind eventueel via het tandwiel-icoon met Dropbox om bonnetjes automatisch te bewaren.");
       }
 
       saveNaamIfNew(afzender);
