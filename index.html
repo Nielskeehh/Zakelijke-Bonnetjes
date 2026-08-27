@@ -598,9 +598,16 @@
       },
       body: JSON.stringify(body || {}),
     });
-    const data = await resp.json().catch(() => ({}));
+    const rawText = await resp.text();
+    let data = {};
+    try {
+      data = rawText ? JSON.parse(rawText) : {};
+    } catch (e) {
+      // response wasn't JSON; data stays {} and the raw text is used below
+    }
     if (!resp.ok) {
-      const err = new Error((data.error_summary) || "Dropbox-verzoek mislukt");
+      const detail = data.error_summary || (resp.status + " " + resp.statusText + (rawText ? ": " + rawText.slice(0, 300) : ""));
+      const err = new Error(endpoint + " mislukt — " + detail);
       err.data = data;
       throw err;
     }
