@@ -204,21 +204,6 @@
     <button type="button" class="btn btn-danger" id="disconnectBtn" style="width:100%; display:none;">Loskoppelen</button>
 
     <div class="status" id="settingsStatus"></div>
-
-    <hr style="margin:20px 0; border:none; border-top:1px solid var(--border);" />
-
-    <label for="mailToInput">Verzenden naar</label>
-    <input type="text" id="mailToInput" placeholder="facturen@installatiebalie.nl" autocomplete="off" />
-
-    <label for="mailCcInput">CC</label>
-    <input type="text" id="mailCcInput" placeholder="jouw-eigen@installatiebalie.nl" autocomplete="off" />
-
-    <label for="mailBodyInput">Automatische tekst</label>
-    <textarea id="mailBodyInput" rows="3" placeholder="Bijgevoegd het bonnetje ter verwerking."></textarea>
-    <div class="hint">Wordt gebruikt bij "Mail klaarzetten" in het overzicht met openstaande bonnetjes.</div>
-
-    <button type="button" class="btn btn-outline" id="saveMailTemplateBtn" style="width:100%;">Opslaan</button>
-    <div class="status" id="mailTemplateStatus"></div>
   </div>
 </div>
 
@@ -248,9 +233,6 @@
   const LS_REFRESH_TOKEN = "db_refresh_token";
   const LS_EXPIRES_AT = "db_expires_at";
   const SS_VERIFIER = "db_code_verifier";
-  const LS_MAIL_TO = "mail_to";
-  const LS_MAIL_CC = "mail_cc";
-  const LS_MAIL_BODY = "mail_body";
   const LS_FOLDER_LINK = "db_folder_link";
   const DROPBOX_FOLDER = "/Bonnetjes";
   const DROPBOX_SENT_FOLDER = DROPBOX_FOLDER + "/Verzonden";
@@ -666,17 +648,6 @@
     return url;
   }
 
-  function buildMailtoUrl(filename) {
-    const to = localStorage.getItem(LS_MAIL_TO) || "";
-    const cc = localStorage.getItem(LS_MAIL_CC) || "";
-    const bodyTemplate = localStorage.getItem(LS_MAIL_BODY) || "";
-    const subject = "Bonnetje - " + filename.replace(/\.pdf$/i, "");
-    const parts = ["subject=" + encodeURIComponent(subject)];
-    if (cc) parts.push("cc=" + encodeURIComponent(cc));
-    if (bodyTemplate) parts.push("body=" + encodeURIComponent(bodyTemplate));
-    return "mailto:" + encodeURIComponent(to) + "?" + parts.join("&");
-  }
-
   async function downloadBonnetjeBytes(path) {
     const token = await getValidAccessToken();
     const resp = await fetch("https://content.dropboxapi.com/2/files/download", {
@@ -761,8 +732,7 @@
       row.innerHTML =
         '<div><div class="name">' + file.name + '</div><div class="meta">' + datum + '</div></div>' +
         '<div class="actions">' +
-        (shareSupported ? '<button type="button" class="btn btn-outline share-btn">Delen / mailen</button>' : "") +
-        '<button type="button" class="btn btn-outline mail-btn">Mail klaarzetten</button>' +
+        (shareSupported ? '<button type="button" class="btn btn-outline share-btn">Delen</button>' : "") +
         '<button type="button" class="btn btn-outline download-btn">Downloaden</button>' +
         '<button type="button" class="btn btn-outline sent-btn">Verzonden</button>' +
         "</div>";
@@ -793,25 +763,6 @@
           }
         });
       }
-
-      row.querySelector(".mail-btn").addEventListener("click", async () => {
-        setBusy(true);
-        try {
-          const blob = await downloadBonnetjeBytes(file.path_lower);
-          const a = document.createElement("a");
-          a.href = URL.createObjectURL(blob);
-          a.download = file.name;
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
-          location.href = buildMailtoUrl(file.name);
-        } catch (err) {
-          console.error(err);
-          setStatus(statusEl, "err", err.message || "Mail klaarzetten mislukt.");
-        } finally {
-          setBusy(false);
-        }
-      });
 
       row.querySelector(".download-btn").addEventListener("click", async () => {
         setBusy(true);
@@ -866,9 +817,6 @@
   document.getElementById("settingsBtn").addEventListener("click", () => {
     overlay.classList.add("open");
     document.getElementById("appKeyInput").value = localStorage.getItem(LS_APPKEY) || "";
-    document.getElementById("mailToInput").value = localStorage.getItem(LS_MAIL_TO) || "";
-    document.getElementById("mailCcInput").value = localStorage.getItem(LS_MAIL_CC) || "";
-    document.getElementById("mailBodyInput").value = localStorage.getItem(LS_MAIL_BODY) || "";
   });
   document.getElementById("closeSettings").addEventListener("click", () => {
     overlay.classList.remove("open");
@@ -880,13 +828,6 @@
     renderOpenstaandeList();
   });
   document.getElementById("refreshOpenstaandBtn").addEventListener("click", renderOpenstaandeList);
-
-  document.getElementById("saveMailTemplateBtn").addEventListener("click", () => {
-    localStorage.setItem(LS_MAIL_TO, document.getElementById("mailToInput").value.trim());
-    localStorage.setItem(LS_MAIL_CC, document.getElementById("mailCcInput").value.trim());
-    localStorage.setItem(LS_MAIL_BODY, document.getElementById("mailBodyInput").value.trim());
-    setStatus(document.getElementById("mailTemplateStatus"), "ok", "Opgeslagen.");
-  });
 
   document.getElementById("openFolderBtn").addEventListener("click", async () => {
     const statusEl = document.getElementById("openstaandStatus");
