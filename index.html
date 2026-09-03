@@ -52,7 +52,8 @@
     margin-bottom: 16px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.08);
   }
-  label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 14px; }
+  label { display: flex; align-items: center; gap: 6px; font-weight: 600; margin-bottom: 6px; font-size: 14px; }
+  label svg { width: 16px; height: 16px; flex-shrink: 0; color: var(--muted); }
   input[type=text], input[list], textarea {
     width: 100%;
     padding: 10px 12px;
@@ -66,7 +67,10 @@
   .radio-row { display: flex; gap: 10px; margin-bottom: 16px; }
   .radio-btn {
     flex: 1;
-    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
     padding: 10px;
     border: 1px solid var(--border);
     border-radius: 8px;
@@ -74,6 +78,7 @@
     font-weight: 600;
     user-select: none;
   }
+  .radio-btn svg { width: 16px; height: 16px; flex-shrink: 0; }
   .radio-btn.selected { background: var(--brand); color: var(--brand-text); border-color: var(--brand); }
   .file-buttons { display: flex; gap: 10px; margin-bottom: 12px; }
   .btn {
@@ -155,22 +160,30 @@
   </div>
 
   <div class="card">
-    <label for="afzender">Van</label>
-    <input type="text" id="afzender" list="namenlijst" placeholder="Naam" autocomplete="off" />
+    <label for="afzender"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M4 20c0-4 4-6 8-6s8 2 8 6"></path></svg>Van</label>
+    <input type="text" id="afzender" list="namenlijst" placeholder="Bijv. Jan Jansen" autocomplete="off" />
     <datalist id="namenlijst"></datalist>
+
+    <label for="kostenplaats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="1"></rect><path d="M9 21v-4h6v4"></path><path d="M9 8h1M14 8h1M9 12h1M14 12h1"></path></svg>Kostenplaats / vestiging</label>
+    <input type="text" id="kostenplaats" list="kostenplaatsenlijst" placeholder="Kostenplaats of vestiging" autocomplete="off" style="margin-bottom:6px;" />
+    <div class="hint" style="margin-top:0;">Vestiging of afdeling waarop deze kosten geboekt mogen worden.</div>
+    <datalist id="kostenplaatsenlijst"></datalist>
 
     <label>Zakelijk?</label>
     <div class="radio-row" id="zakelijkRow">
-      <div class="radio-btn" data-value="ja">Ja</div>
-      <div class="radio-btn" data-value="nee">Nee</div>
+      <div class="radio-btn" data-value="ja"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"></rect><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>Ja</div>
+      <div class="radio-btn" data-value="nee"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M4 20c0-4 4-6 8-6s8 2 8 6"></path></svg>Nee</div>
     </div>
 
-    <div id="klantWrap" style="display:none;">
-      <label for="klant">Naam klant / leverancier / relatie</label>
-      <input type="text" id="klant" placeholder="Naam" autocomplete="off" />
+    <div id="leverancierWrap" style="display:none;">
+      <label for="leverancier"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"></rect><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>Leverancier / klant / prospect</label>
+      <input type="text" id="leverancier" placeholder="Naam" autocomplete="off" />
     </div>
 
-    <button type="button" class="btn btn-primary" id="submitBtn">PDF maken en opslaan</button>
+    <label for="omschrijving"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>Omschrijving</label>
+    <textarea id="omschrijving" rows="2" placeholder="Waar ging deze uitgave over?"></textarea>
+
+    <button type="button" class="btn btn-primary" id="submitBtn">Versturen</button>
     <div class="status" id="status"></div>
   </div>
 
@@ -228,6 +241,7 @@
   "use strict";
 
   const LS_NAMEN = "bon_namen";
+  const LS_KOSTENPLAATSEN = "bon_kostenplaatsen";
   const LS_APPKEY = "db_app_key";
   const LS_ACCESS_TOKEN = "db_access_token";
   const LS_REFRESH_TOKEN = "db_refresh_token";
@@ -270,6 +284,34 @@
     });
   }
 
+  // ---------- Kostenplaatsenlijst ----------
+  function getKostenplaatsen() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(LS_KOSTENPLAATSEN) || "[]");
+      return Array.isArray(raw) ? raw : [];
+    } catch (e) {
+      return [];
+    }
+  }
+  function saveKostenplaatsIfNew(waarde) {
+    if (!waarde) return;
+    const lijst = getKostenplaatsen();
+    const exists = lijst.some((k) => k.toLowerCase() === waarde.toLowerCase());
+    if (!exists) {
+      lijst.push(waarde);
+      localStorage.setItem(LS_KOSTENPLAATSEN, JSON.stringify(lijst));
+    }
+  }
+  function renderKostenplaatsenlijst() {
+    const dl = document.getElementById("kostenplaatsenlijst");
+    dl.innerHTML = "";
+    getKostenplaatsen().forEach((k) => {
+      const opt = document.createElement("option");
+      opt.value = k;
+      dl.appendChild(opt);
+    });
+  }
+
   // ---------- UI: zakelijk toggle ----------
   let zakelijkValue = null;
   document.getElementById("zakelijkRow").addEventListener("click", (e) => {
@@ -279,7 +321,7 @@
     document.querySelectorAll("#zakelijkRow .radio-btn").forEach((b) =>
       b.classList.toggle("selected", b === btn)
     );
-    document.getElementById("klantWrap").style.display = zakelijkValue === "ja" ? "block" : "none";
+    document.getElementById("leverancierWrap").style.display = zakelijkValue === "ja" ? "block" : "none";
   });
 
   // ---------- Bestand kiezen ----------
@@ -368,8 +410,25 @@
     el.textContent = msg;
   }
 
+  function wrapText(text, font, size, maxWidth) {
+    const words = text.split(/\s+/);
+    const lines = [];
+    let current = "";
+    for (const word of words) {
+      const test = current ? current + " " + word : word;
+      if (font.widthOfTextAtSize(test, size) <= maxWidth || !current) {
+        current = test;
+      } else {
+        lines.push(current);
+        current = word;
+      }
+    }
+    if (current) lines.push(current);
+    return lines;
+  }
+
   // ---------- PDF opbouwen ----------
-  async function buildPdf({ afzender, zakelijk, klant, file }) {
+  async function buildPdf({ afzender, kostenplaats, zakelijk, leverancier, omschrijving, file }) {
     const { PDFDocument, StandardFonts, rgb } = PDFLib;
     const pdfDoc = await PDFDocument.create();
     const font = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
@@ -390,16 +449,28 @@
 
     const lines = [
       ["Van:", afzender || "-"],
+      ["Kostenplaats / vestiging:", kostenplaats || "-"],
       ["Zakelijk:", zakelijk === "ja" ? "Ja" : "Nee"],
     ];
-    if (zakelijk === "ja") lines.push(["Klant / leverancier / relatie:", klant || "-"]);
-    lines.push(["Ingediend op:", datumStr]);
+    if (zakelijk === "ja") lines.push(["Leverancier / klant / prospect:", leverancier || "-"]);
 
     for (const [label, value] of lines) {
       page.drawText(label, { x: margin, y, size: 11, font, color: rgb(0.3, 0.3, 0.3) });
       page.drawText(value, { x: margin + 190, y, size: 11, font: fontRegular, color: rgb(0, 0, 0) });
       y -= 20;
     }
+
+    page.drawText("Omschrijving:", { x: margin, y, size: 11, font, color: rgb(0.3, 0.3, 0.3) });
+    y -= 16;
+    for (const line of wrapText(omschrijving || "-", fontRegular, 11, pageWidth - margin * 2)) {
+      page.drawText(line, { x: margin, y, size: 11, font: fontRegular, color: rgb(0, 0, 0) });
+      y -= 16;
+    }
+    y -= 4;
+
+    page.drawText("Ingediend op:", { x: margin, y, size: 11, font, color: rgb(0.3, 0.3, 0.3) });
+    page.drawText(datumStr, { x: margin + 190, y, size: 11, font: fontRegular, color: rgb(0, 0, 0) });
+    y -= 20;
 
     y -= 10;
     page.drawLine({ start: { x: margin, y }, end: { x: pageWidth - margin, y }, thickness: 1, color: rgb(0.85, 0.85, 0.85) });
@@ -438,12 +509,12 @@
       .toLowerCase() || "onbekend";
   }
 
-  function buildFilename({ afzender, zakelijk, klant }) {
+  function buildFilename({ afzender, zakelijk, leverancier }) {
     const d = new Date();
     const pad = (n) => String(n).padStart(2, "0");
     const datePart = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
     const timePart = `${pad(d.getHours())}${pad(d.getMinutes())}`;
-    const naamPart = sanitizeForFilename(zakelijk === "ja" && klant ? klant : afzender);
+    const naamPart = sanitizeForFilename(zakelijk === "ja" && leverancier ? leverancier : afzender);
     return `bon_${datePart}_${timePart}_${naamPart}.pdf`;
   }
 
@@ -852,20 +923,24 @@
   document.getElementById("submitBtn").addEventListener("click", async () => {
     const statusEl = document.getElementById("status");
     const afzender = document.getElementById("afzender").value.trim();
-    const klant = document.getElementById("klant").value.trim();
+    const kostenplaats = document.getElementById("kostenplaats").value.trim();
+    const leverancier = document.getElementById("leverancier").value.trim();
+    const omschrijving = document.getElementById("omschrijving").value.trim();
 
     if (!selectedFile) return setStatus(statusEl, "err", "Kies eerst een foto of bestand van het bonnetje.");
     if (!afzender) return setStatus(statusEl, "err", "Vul in wie het bonnetje indient.");
+    if (!kostenplaats) return setStatus(statusEl, "err", "Vul de kostenplaats of vestiging in.");
     if (!zakelijkValue) return setStatus(statusEl, "err", "Geef aan of het bonnetje zakelijk is.");
-    if (zakelijkValue === "ja" && !klant) return setStatus(statusEl, "err", "Vul de naam van de klant, leverancier of relatie in.");
+    if (zakelijkValue === "ja" && !leverancier) return setStatus(statusEl, "err", "Vul de naam van de leverancier, klant of prospect in.");
+    if (!omschrijving) return setStatus(statusEl, "err", "Vul een omschrijving in.");
 
     const btn = document.getElementById("submitBtn");
     btn.disabled = true;
     setStatus(statusEl, "info", "PDF wordt gemaakt...");
 
     try {
-      const pdfBytes = await buildPdf({ afzender, zakelijk: zakelijkValue, klant, file: selectedFile });
-      const filename = buildFilename({ afzender, zakelijk: zakelijkValue, klant });
+      const pdfBytes = await buildPdf({ afzender, kostenplaats, zakelijk: zakelijkValue, leverancier, omschrijving, file: selectedFile });
+      const filename = buildFilename({ afzender, zakelijk: zakelijkValue, leverancier });
 
       if (isDropboxConnected()) {
         setStatus(statusEl, "info", "PDF wordt opgeslagen in Dropbox...");
@@ -885,14 +960,17 @@
 
       saveNaamIfNew(afzender);
       renderNamenlijst();
+      saveKostenplaatsIfNew(kostenplaats);
+      renderKostenplaatsenlijst();
 
       // reset form for the next receipt
       selectedFile = null;
       document.getElementById("preview").innerHTML = "";
-      document.getElementById("klant").value = "";
+      document.getElementById("leverancier").value = "";
+      document.getElementById("omschrijving").value = "";
       zakelijkValue = null;
       document.querySelectorAll("#zakelijkRow .radio-btn").forEach((b) => b.classList.remove("selected"));
-      document.getElementById("klantWrap").style.display = "none";
+      document.getElementById("leverancierWrap").style.display = "none";
     } catch (e) {
       console.error(e);
       setStatus(statusEl, "err", e.message || "Er ging iets mis.");
@@ -904,6 +982,7 @@
   // ---------- Init ----------
   (async function init() {
     renderNamenlijst();
+    renderKostenplaatsenlijst();
     await finishDropboxAuthIfRedirected();
     updateDropboxStatusUI();
     renderOpenstaandeList();
